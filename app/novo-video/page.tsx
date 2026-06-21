@@ -312,13 +312,11 @@ export default function NovoVideo() {
               </div>
             )}
 
-            {/* Botão montar vídeo */}
-            {tipo === 'video' && arquivos.length > 0 && (
-              <button onClick={montarVideo} disabled={montando}
-                className="w-full mt-4 py-3 rounded-xl text-xs uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: 'var(--dourado)', color: '#fff' }}>
-                {montando ? statusMontagem : '▶ Montar vídeo com IA'}
-              </button>
+            {/* Status de arquivos */}
+            {arquivos.length > 0 && (
+              <p className="text-xs mt-2 text-center font-semibold" style={{ color: '#4caf50' }}>
+                ✅ {arquivos.length} arquivo{arquivos.length > 1 ? 's' : ''} pronto{arquivos.length > 1 ? 's' : ''}
+              </p>
             )}
 
             {videoFinal && (
@@ -341,11 +339,22 @@ export default function NovoVideo() {
           </div>
         </div>
 
-        <button onClick={gerar} disabled={loading || !briefing.trim()}
-          className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-40 mb-10"
-          style={{ background: 'var(--verde)', color: 'var(--bege)' }}>
-          {loading ? `Gerando ${tipoAtual.label}...` : `✦ Gerar ${tipoAtual.label} com IA`}
-        </button>
+        <div className="flex gap-3 mb-10 flex-wrap">
+          <button onClick={gerar} disabled={loading || !briefing.trim()}
+            className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-40"
+            style={{ background: 'var(--verde)', color: 'var(--bege)' }}>
+            {loading ? `Gerando ${tipoAtual.label}...` : `✦ Gerar ${tipoAtual.label} com IA`}
+          </button>
+
+          {tipo === 'video' && (
+            <button onClick={arquivos.length > 0 ? montarVideo : () => inputRef.current?.click()}
+              disabled={montando}
+              className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: arquivos.length > 0 ? 'var(--dourado)' : '#ccc', color: '#fff' }}>
+              {montando ? statusMontagem : arquivos.length > 0 ? `▶ Montar vídeo (${arquivos.length} clips)` : '▶ Montar vídeo — envie clips primeiro'}
+            </button>
+          )}
+        </div>
 
         {resultado && (
           <div className="rounded-2xl p-6" style={{ background: '#fff', border: '1px solid var(--bege-dourado)' }}>
