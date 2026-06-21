@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --verde: #233022;
+  --bege: #efebdf;
+  --dourado: #a18c6a;
+  --bege-dourado: #d8cbb2;
+  --background: #efebdf;
+  --foreground: #000000;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Georgia, serif;
+}
