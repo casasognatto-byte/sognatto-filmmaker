@@ -300,11 +300,20 @@ function NovoVideoInner() {
                 </>
               ) : (
                 <>
-                  <span className="text-3xl mb-2">{tipo === 'video' ? '🎬' : '🖼️'}</span>
-                  <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--dourado)' }}>
-                    {arquivos.length > 0 ? `${arquivos.length} arquivo${arquivos.length > 1 ? 's' : ''} — clique para adicionar mais` : 'Clique para enviar'}
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: '#999' }}>{tipo === 'video' ? 'MP4, MOV, JPG, PNG' : 'JPG, PNG, WEBP'}</p>
+                  <span className="text-3xl mb-2">{arquivos.length > 0 ? '✅' : (tipo === 'video' ? '🎬' : '🖼️')}</span>
+                  {arquivos.length > 0 ? (
+                    <>
+                      <p className="text-sm font-bold" style={{ color: '#4caf50' }}>
+                        {arquivos.length} arquivo{arquivos.length > 1 ? 's' : ''} enviado{arquivos.length > 1 ? 's' : ''}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: '#999' }}>Clique para adicionar mais</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--dourado)' }}>Clique para enviar</p>
+                      <p className="text-xs mt-1" style={{ color: '#999' }}>{tipo === 'video' ? 'MP4, MOV, JPG, PNG' : 'JPG, PNG, WEBP'}</p>
+                    </>
+                  )}
                 </>
               )}
             </div>
