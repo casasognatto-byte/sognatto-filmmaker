@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "PowerShell(git *)",
+      "PowerShell(npm *)",
+      "PowerShell(npx *)",
+      "PowerShell(node *)",
+      "PowerShell(vercel *)",
+      "Read(C:\\Users\\davin\\Documents\\sognatto-filmmaker\\*)",
+      "Edit(C:\\Users\\davin\\Documents\\sognatto-filmmaker\\*)",
+      "Write(C:\\Users\\davin\\Documents\\sognatto-filmmaker\\*)"
+    ]
+  }
+}

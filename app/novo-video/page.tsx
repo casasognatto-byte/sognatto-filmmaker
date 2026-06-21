@@ -81,43 +81,36 @@ function NovoVideoInner() {
       setUploadProgresso(`Enviando ${i + 1} de ${files.length}: ${file.name}`)
 
       try {
-        const CHUNK_SIZE = 3 * 1024 * 1024 // 3MB por chunk
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
-        const uploadId = `${Date.now()}_${i}`
-        let resultado: any = null
+        setUploadProgresso(`Arquivo ${i + 1}/${files.length}: preparando ${file.name.slice(0, 25)}...`)
 
-        for (let c = 0; c < totalChunks; c++) {
-          const start = c * CHUNK_SIZE
-          const end = Math.min(start + CHUNK_SIZE, file.size)
-          const chunkBlob = file.slice(start, end)
+        // 1. Pede URL pré-assinada ao servidor
+        const presignRes = await fetch('/api/r2-presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, contentType: file.type || 'video/mp4' }),
+        })
+        if (!presignRes.ok) {
+          setUploadProgresso(`❌ Erro ao preparar upload de ${file.name}`)
+          await new Promise(r => setTimeout(r, 3000))
+          continue
+        }
+        const { uploadUrl, publicUrl } = await presignRes.json()
 
-          setUploadProgresso(`Arquivo ${i + 1}/${files.length}: ${file.name.slice(0, 25)}... (parte ${c + 1}/${totalChunks})`)
-
-          const form = new FormData()
-          form.append('chunk', chunkBlob, file.name)
-          form.append('uploadId', uploadId)
-          form.append('chunkIndex', String(c))
-          form.append('totalChunks', String(totalChunks))
-          form.append('filename', file.name)
-          form.append('contentType', file.type || 'video/mp4')
-
-          const res = await fetch('/api/upload-chunk', { method: 'POST', body: form })
-
-          if (!res.ok) {
-            const erro = await res.text()
-            setUploadProgresso(`❌ Erro em ${file.name}: ${erro.slice(0, 80)}`)
-            await new Promise(r => setTimeout(r, 3000))
-            break
-          }
-
-          const data = await res.json()
-          if (data.done) resultado = data
+        // 2. Upload direto browser → Cloudflare R2
+        setUploadProgresso(`Arquivo ${i + 1}/${files.length}: enviando ${file.name.slice(0, 25)}... (${(file.size/1024/1024).toFixed(0)}MB)`)
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'video/mp4' },
+          body: file,
+        })
+        if (!uploadRes.ok) {
+          setUploadProgresso(`❌ Erro no upload de ${file.name}`)
+          await new Promise(r => setTimeout(r, 3000))
+          continue
         }
 
-        if (resultado) {
-          novos.push({ name: file.name, url: resultado.url, id: resultado.id, duracao: 5 })
-          setUploadProgresso(`✅ ${novos.length}/${files.length} concluído: ${file.name.slice(0, 30)}`)
-        }
+        novos.push({ name: file.name, url: publicUrl, id: publicUrl, duracao: 5 })
+        setUploadProgresso(`✅ ${novos.length}/${files.length} concluído: ${file.name.slice(0, 30)}`)
       } catch (err: any) {
         setUploadProgresso(`❌ Falha em ${file.name}: ${err.message}`)
         await new Promise(r => setTimeout(r, 3000))
