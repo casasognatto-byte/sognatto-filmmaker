@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export const config = { api: { bodyParser: false } }
-
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get('file') as File
