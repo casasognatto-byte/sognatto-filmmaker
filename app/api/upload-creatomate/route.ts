@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get('file') as File
@@ -14,8 +16,8 @@ export async function POST(req: NextRequest) {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.CREATOMATE_API_KEY}`,
-      'Content-Type': file.type,
-      'Content-Disposition': `attachment; filename="${file.name}"`,
+      'Content-Type': file.type || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(file.name)}"`,
     },
     body: buffer,
   })
