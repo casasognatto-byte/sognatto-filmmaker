@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -31,7 +31,7 @@ const TIPOS = [
   { id: 'carrossel', label: '📑 Carrossel', desc: 'Slides + legenda + hashtags' },
 ]
 
-export default function NovoVideo() {
+function NovoVideoInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tipo, setTipo] = useState<Tipo>((searchParams.get('tipo') as Tipo) || 'video')
@@ -409,5 +409,13 @@ export default function NovoVideo() {
         )}
       </div>
     </main>
+  )
+}
+
+export default function NovoVideo() {
+  return (
+    <Suspense>
+      <NovoVideoInner />
+    </Suspense>
   )
 }
