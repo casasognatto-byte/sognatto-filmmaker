@@ -80,6 +80,7 @@ export default function Dashboard() {
               style={{ background: 'var(--verde)', border: '1px solid var(--verde)' }}>
               <div className="text-3xl mb-3">🎬</div>
               <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--bege)' }}>Nova Postagem</h3>
+
               <p className="text-sm mb-4" style={{ color: 'var(--bege-dourado)' }}>Vídeo, post ou carrossel com roteiro gerado pela IA.</p>
               <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--dourado)' }}>Começar →</span>
             </div>
