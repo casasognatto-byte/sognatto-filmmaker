@@ -43,6 +43,7 @@ export default function NovoVideo() {
   const [arquivos, setArquivos] = useState<Arquivo[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadProgresso, setUploadProgresso] = useState('')
+  const [uploadConcluido, setUploadConcluido] = useState(false)
   const [montando, setMontando] = useState(false)
   const [statusMontagem, setStatusMontagem] = useState('')
   const [videoFinal, setVideoFinal] = useState<string | null>(null)
@@ -96,6 +97,8 @@ export default function NovoVideo() {
     setArquivos(prev => [...prev, ...novos])
     setUploading(false)
     setUploadProgresso('')
+    setUploadConcluido(true)
+    setTimeout(() => setUploadConcluido(false), 4000)
     if (inputRef.current) inputRef.current.value = ''
   }
 
@@ -250,15 +253,34 @@ export default function NovoVideo() {
                 ☁ Meus projetos
               </Link>
             </div>
-            <div onClick={() => inputRef.current?.click()}
-              className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-              style={{ borderColor: 'var(--dourado)', background: '#fff', minHeight: '130px' }}>
+            <div onClick={() => !uploading && inputRef.current?.click()}
+              className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all"
+              style={{
+                borderColor: uploadConcluido ? '#4caf50' : uploading ? 'var(--dourado)' : 'var(--dourado)',
+                background: uploadConcluido ? '#f0faf0' : '#fff',
+                minHeight: '130px',
+                cursor: uploading ? 'wait' : 'pointer'
+              }}>
               {uploading ? (
-                <p className="text-xs text-center px-4" style={{ color: 'var(--dourado)' }}>{uploadProgresso}</p>
+                <>
+                  <div className="text-2xl mb-2 animate-spin">⏳</div>
+                  <p className="text-xs text-center px-4 font-medium" style={{ color: 'var(--dourado)' }}>{uploadProgresso}</p>
+                  <p className="text-xs mt-1" style={{ color: '#999' }}>Aguarde, enviando para a nuvem...</p>
+                </>
+              ) : uploadConcluido ? (
+                <>
+                  <div className="text-3xl mb-2">✅</div>
+                  <p className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#4caf50' }}>
+                    {arquivos.length} arquivo{arquivos.length > 1 ? 's' : ''} enviado{arquivos.length > 1 ? 's' : ''} com sucesso!
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#999' }}>Clique para adicionar mais</p>
+                </>
               ) : (
                 <>
                   <span className="text-3xl mb-2">{tipo === 'video' ? '🎬' : '🖼️'}</span>
-                  <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--dourado)' }}>Clique para enviar</p>
+                  <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--dourado)' }}>
+                    {arquivos.length > 0 ? `${arquivos.length} arquivo${arquivos.length > 1 ? 's' : ''} — clique para adicionar mais` : 'Clique para enviar'}
+                  </p>
                   <p className="text-xs mt-1" style={{ color: '#999' }}>{tipo === 'video' ? 'MP4, MOV, JPG, PNG' : 'JPG, PNG, WEBP'}</p>
                 </>
               )}
