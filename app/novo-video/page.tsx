@@ -80,18 +80,29 @@ export default function NovoVideo() {
       const file = files[i]
       setUploadProgresso(`Enviando ${i + 1} de ${files.length}: ${file.name}`)
 
-      const form = new FormData()
-      form.append('file', file)
+      try {
+        // Upload direto do browser para o Creatomate (sem passar pelo servidor)
+        const buffer = await file.arrayBuffer()
+        const res = await fetch('https://api.creatomate.com/v1/assets', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CREATOMATE_API_KEY || 'f0a8c875-1c14-45f4-bdf0-c846d2ad1e27'}`,
+            'Content-Type': file.type || 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${file.name}"`,
+          },
+          body: buffer,
+        })
 
-      const res = await fetch('/api/upload-creatomate', { method: 'POST', body: form })
+        if (!res.ok) {
+          console.error('Erro upload:', await res.text())
+          continue
+        }
 
-      if (!res.ok) {
-        console.error('Erro upload:', await res.text())
-        continue
+        const data = await res.json()
+        novos.push({ name: file.name, url: data.url, id: data.id, duracao: 5 })
+      } catch (err) {
+        console.error('Erro no upload de', file.name, err)
       }
-
-      const data = await res.json()
-      novos.push({ name: file.name, url: data.url, id: data.id, duracao: 5 })
     }
 
     setArquivos(prev => [...prev, ...novos])
