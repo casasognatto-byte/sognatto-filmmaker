@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Tipo = 'video' | 'post-estatico' | 'carrossel'
@@ -33,8 +33,9 @@ const TIPOS = [
 
 export default function NovoVideo() {
   const router = useRouter()
-  const [tipo, setTipo] = useState<Tipo>('video')
-  const [duracaoVideo, setDuracaoVideo] = useState<Duracao>(30)
+  const searchParams = useSearchParams()
+  const [tipo, setTipo] = useState<Tipo>((searchParams.get('tipo') as Tipo) || 'video')
+  const [duracaoVideo, setDuracaoVideo] = useState<Duracao>((Number(searchParams.get('duracao')) as Duracao) || 30)
   const [briefing, setBriefing] = useState('')
   const [resultado, setResultado] = useState('')
   const [loading, setLoading] = useState(false)
