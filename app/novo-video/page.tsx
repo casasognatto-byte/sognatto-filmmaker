@@ -361,8 +361,12 @@ export default function NovoVideo() {
             <button onClick={arquivos.length > 0 ? montarVideo : () => inputRef.current?.click()}
               disabled={montando}
               className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: arquivos.length > 0 ? 'var(--dourado)' : '#ccc', color: '#fff' }}>
-              {montando ? statusMontagem : arquivos.length > 0 ? `▶ Montar vídeo (${arquivos.length} clips)` : '▶ Montar vídeo — envie clips primeiro'}
+              style={{ background: arquivos.length > 0 ? 'var(--dourado)' : '#bbb', color: '#fff' }}>
+              {montando
+                ? statusMontagem
+                : arquivos.length > 0
+                  ? `▶ Montar vídeo · ${arquivos.length} clip${arquivos.length > 1 ? 's' : ''}`
+                  : '▶ Montar vídeo · 0 clips'}
             </button>
           )}
         </div>
