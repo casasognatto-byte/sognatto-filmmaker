@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     { expiresIn: 3600 }
   )
 
-  const publicUrl = `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${key}`
+  const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`
 
   return NextResponse.json({ uploadUrl: url, publicUrl, key })
 }
