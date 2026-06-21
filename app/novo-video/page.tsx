@@ -81,21 +81,43 @@ export default function NovoVideo() {
       setUploadProgresso(`Enviando ${i + 1} de ${files.length}: ${file.name}`)
 
       try {
-        const form = new FormData()
-        form.append('file', file)
+        const CHUNK_SIZE = 3 * 1024 * 1024 // 3MB por chunk
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+        const uploadId = `${Date.now()}_${i}`
+        let resultado: any = null
 
-        const res = await fetch('/api/upload-creatomate', { method: 'POST', body: form })
+        for (let c = 0; c < totalChunks; c++) {
+          const start = c * CHUNK_SIZE
+          const end = Math.min(start + CHUNK_SIZE, file.size)
+          const chunkBlob = file.slice(start, end)
 
-        if (!res.ok) {
-          const erro = await res.text()
-          setUploadProgresso(`❌ Erro em ${file.name}: ${erro.slice(0, 80)}`)
-          await new Promise(r => setTimeout(r, 3000))
-          continue
+          setUploadProgresso(`Arquivo ${i + 1}/${files.length}: ${file.name.slice(0, 25)}... (parte ${c + 1}/${totalChunks})`)
+
+          const form = new FormData()
+          form.append('chunk', chunkBlob, file.name)
+          form.append('uploadId', uploadId)
+          form.append('chunkIndex', String(c))
+          form.append('totalChunks', String(totalChunks))
+          form.append('filename', file.name)
+          form.append('contentType', file.type || 'video/mp4')
+
+          const res = await fetch('/api/upload-chunk', { method: 'POST', body: form })
+
+          if (!res.ok) {
+            const erro = await res.text()
+            setUploadProgresso(`❌ Erro em ${file.name}: ${erro.slice(0, 80)}`)
+            await new Promise(r => setTimeout(r, 3000))
+            break
+          }
+
+          const data = await res.json()
+          if (data.done) resultado = data
         }
 
-        const data = await res.json()
-        novos.push({ name: file.name, url: data.url, id: data.id, duracao: 5 })
-        setUploadProgresso(`✅ ${i + 1}/${files.length} enviado: ${file.name.slice(0, 30)}`)
+        if (resultado) {
+          novos.push({ name: file.name, url: resultado.url, id: resultado.id, duracao: 5 })
+          setUploadProgresso(`✅ ${novos.length}/${files.length} concluído: ${file.name.slice(0, 30)}`)
+        }
       } catch (err: any) {
         setUploadProgresso(`❌ Falha em ${file.name}: ${err.message}`)
         await new Promise(r => setTimeout(r, 3000))
