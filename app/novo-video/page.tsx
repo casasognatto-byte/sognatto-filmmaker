@@ -391,6 +391,10 @@ function NovoVideoInner() {
         )}
 
         <div className="flex gap-3 mb-10 flex-wrap">
+          <Link href="/projetos" className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-80"
+            style={{ border: '1px solid var(--dourado)', color: 'var(--dourado)', background: '#fff' }}>
+            ☁ Vídeos em andamento
+          </Link>
           <button onClick={gerar} disabled={loading || !briefing.trim()}
             className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-40"
             style={{ background: 'var(--verde)', color: 'var(--bege)' }}>
