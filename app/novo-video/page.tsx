@@ -68,7 +68,7 @@ async function extrairFrames(blob: Blob, _nome: string): Promise<{ timestamp: nu
         video.currentTime = timestamps[i]
         video.onseeked = () => {
           try {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            ctx!.drawImage(video, 0, 0, canvas.width, canvas.height)
             const base64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1]
             frames.push({ timestamp: timestamps[i], base64 })
           } catch {}
