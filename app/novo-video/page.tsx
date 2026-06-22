@@ -212,7 +212,8 @@ function NovoVideoInner() {
         setMontando(false)
       } else if (statusData.status === 'failed') {
         clearInterval(poll)
-        setStatusMontagem(`Falhou: ${statusData.error}`)
+        setErroMontagem(`Falha na renderização: ${statusData.error || 'motivo não informado'}`)
+        setStatusMontagem('')
         setMontando(false)
       } else {
         setStatusMontagem(`Renderizando... (${statusData.status})`)

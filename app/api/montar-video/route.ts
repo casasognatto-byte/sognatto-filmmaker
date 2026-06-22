@@ -62,14 +62,15 @@ export async function POST(req: NextRequest) {
   // Logo Casa Sognatto no encerramento
   elements.push({
     id: 'encerramento_bg',
-    type: 'rectangle',
+    type: 'shape',
     time: duracaoTotal - 4,
     duration: 4,
-    x: '0%',
-    y: '0%',
+    x: '50%',
+    y: '50%',
     width: '100%',
     height: '100%',
     fill_color: '#233022',
+    path: 'M 0 0 L 100 0 L 100 100 L 0 100 Z',
   })
 
   elements.push({
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     fill_color: '#efebdf',
     font_weight: '700',
     x_alignment: '50%',
-    letter_spacing: '0.3em',
+    letter_spacing: '20%',
     animations: [{ easing: 'linear', type: 'fade', fade: 'in', time: 0, duration: 1 }],
   })
 
