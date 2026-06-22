@@ -129,5 +129,13 @@ Briefing: ${briefing}`
 
   const resultado = message.content[0].type === 'text' ? message.content[0].text : ''
 
-  return NextResponse.json({ resultado })
+  // Nome amigável do modelo que de fato gerou (message.model vem da API, nunca desatualiza)
+  const NOMES_MODELO: Record<string, string> = {
+    'claude-opus-4-8': 'Claude Opus 4.8',
+    'claude-sonnet-4-6': 'Claude Sonnet 4.6',
+    'claude-haiku-4-5': 'Claude Haiku 4.5',
+  }
+  const modelo = NOMES_MODELO[message.model] || message.model
+
+  return NextResponse.json({ resultado, modelo })
 }

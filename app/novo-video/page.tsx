@@ -38,6 +38,7 @@ function NovoVideoInner() {
   const [duracaoVideo, setDuracaoVideo] = useState<Duracao>((Number(searchParams.get('duracao')) as Duracao) || 30)
   const [briefing, setBriefing] = useState('')
   const [resultado, setResultado] = useState('')
+  const [modeloUsado, setModeloUsado] = useState('')
   const [loading, setLoading] = useState(false)
   const [custo, setCusto] = useState<string | null>(null)
   const [arquivos, setArquivos] = useState<Arquivo[]>(() => {
@@ -200,6 +201,7 @@ function NovoVideoInner() {
 
       const data = await res.json()
       setResultado(data.resultado || 'Erro ao gerar conteúdo.')
+      setModeloUsado(data.modelo || '')
     } catch (e: any) {
       setResultado(e.name === 'AbortError' ? 'Tempo esgotado. Tente novamente.' : `Erro: ${e.message}`)
     }
@@ -449,9 +451,16 @@ function NovoVideoInner() {
         {resultado && (
           <div className="rounded-2xl p-6" style={{ background: '#fff', border: '1px solid var(--bege-dourado)' }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm uppercase tracking-widest font-semibold" style={{ color: 'var(--verde)' }}>
-                {tipoAtual.label} — gerado pela IA
-              </h3>
+              <div>
+                <h3 className="text-sm uppercase tracking-widest font-semibold" style={{ color: 'var(--verde)' }}>
+                  {tipoAtual.label} — gerado pela IA
+                </h3>
+                {modeloUsado && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--dourado)' }}>
+                    ✦ Gerado por {modeloUsado}
+                  </p>
+                )}
+              </div>
               <button onClick={() => navigator.clipboard.writeText(resultado)}
                 className="text-xs px-3 py-1 rounded-lg"
                 style={{ border: '1px solid var(--dourado)', color: 'var(--dourado)' }}>
