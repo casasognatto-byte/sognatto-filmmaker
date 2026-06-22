@@ -49,6 +49,10 @@ function NovoVideoInner() {
   const [montando, setMontando] = useState(false)
   const [statusMontagem, setStatusMontagem] = useState('')
   const [erroMontagem, setErroMontagem] = useState('')
+  const [feedbackAberto, setFeedbackAberto] = useState<'positivo' | 'negativo' | null>(null)
+  const [critica, setCritica] = useState('')
+  const [feedbackEnviado, setFeedbackEnviado] = useState(false)
+  const [salvandoFeedback, setSalvandoFeedback] = useState(false)
   const [videoFinal, setVideoFinal] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -145,10 +149,35 @@ function NovoVideoInner() {
     setArquivos(prev => prev.map((a, i) => i === index ? { ...a, duracao } : a))
   }
 
+  async function enviarFeedback(avaliacao: 'positivo' | 'negativo') {
+    // 👎 abre o campo de crítica; 👍 também permite comentar, mas pode enviar direto
+    if (feedbackAberto !== avaliacao) {
+      setFeedbackAberto(avaliacao)
+      return
+    }
+    setSalvandoFeedback(true)
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, duracao: duracaoVideo, briefing, roteiro: resultado, avaliacao, critica }),
+      })
+      setFeedbackEnviado(true)
+      setFeedbackAberto(null)
+      setCritica('')
+    } catch {
+      // silencioso — não atrapalha o fluxo
+    }
+    setSalvandoFeedback(false)
+  }
+
   async function gerar() {
     if (!briefing.trim()) return
     setLoading(true)
     setResultado('')
+    setFeedbackEnviado(false)
+    setFeedbackAberto(null)
+    setCritica('')
 
     try {
       const controller = new AbortController()
@@ -432,6 +461,57 @@ function NovoVideoInner() {
             <pre className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#333', fontFamily: 'Georgia, serif' }}>
               {resultado}
             </pre>
+
+            {/* Feedback — ajuda a IA a aprender o estilo da marca */}
+            <div className="mt-6 pt-5" style={{ borderTop: '1px solid var(--bege-dourado)' }}>
+              {feedbackEnviado ? (
+                <p className="text-sm text-center font-semibold" style={{ color: '#4caf50' }}>
+                  ✅ Obrigado! Seu feedback foi salvo e vai ajudar a melhorar as próximas gerações.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--verde)' }}>
+                    O que achou deste {tipoAtual.label.toLowerCase()}?
+                  </p>
+                  <div className="flex gap-3 mb-3">
+                    <button onClick={() => enviarFeedback('positivo')}
+                      className="px-5 py-2 rounded-xl text-sm font-semibold transition-all"
+                      style={{
+                        background: feedbackAberto === 'positivo' ? 'var(--verde)' : '#fff',
+                        color: feedbackAberto === 'positivo' ? 'var(--bege)' : 'var(--verde)',
+                        border: '1px solid var(--verde)',
+                      }}>
+                      👍 Aprovar
+                    </button>
+                    <button onClick={() => enviarFeedback('negativo')}
+                      className="px-5 py-2 rounded-xl text-sm font-semibold transition-all"
+                      style={{
+                        background: feedbackAberto === 'negativo' ? '#c62828' : '#fff',
+                        color: feedbackAberto === 'negativo' ? '#fff' : '#c62828',
+                        border: '1px solid #c62828',
+                      }}>
+                      👎 Precisa melhorar
+                    </button>
+                  </div>
+
+                  {feedbackAberto && (
+                    <div className="space-y-2">
+                      <textarea value={critica} onChange={e => setCritica(e.target.value)} rows={3}
+                        placeholder={feedbackAberto === 'positivo'
+                          ? 'O que mais gostou? (opcional — ajuda a IA a repetir o acerto)'
+                          : 'O que faltou ou ficou errado? (quanto mais detalhe, melhor a IA aprende)'}
+                        className="w-full px-4 py-3 rounded-xl border text-sm outline-none resize-none"
+                        style={{ borderColor: 'var(--dourado)', background: '#fff', color: '#333' }} />
+                      <button onClick={() => enviarFeedback(feedbackAberto)} disabled={salvandoFeedback}
+                        className="px-5 py-2 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ background: 'var(--dourado)', color: '#fff' }}>
+                        {salvandoFeedback ? 'Salvando...' : 'Enviar feedback'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
