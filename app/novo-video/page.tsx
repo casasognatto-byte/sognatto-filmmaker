@@ -22,7 +22,6 @@ interface Arquivo {
   name: string
   url: string
   id: string
-  duracao: number
 }
 
 const TIPOS = [
@@ -286,7 +285,7 @@ function NovoVideoInner() {
           continue
         }
 
-        novos.push({ name: original.name, url: publicUrl, id: publicUrl, duracao: 5 })
+        novos.push({ name: original.name, url: publicUrl, id: publicUrl })
         setUploadProgresso(`✅ ${novos.length}/${files.length} concluído: ${original.name.slice(0, 28)}`)
       } catch (err: any) {
         setUploadProgresso(`❌ Falha em ${original.name}: ${err.message}`)
@@ -314,11 +313,6 @@ function NovoVideoInner() {
       localStorage.setItem('filmmaker_arquivos', JSON.stringify(updated))
       return updated
     })
-  }
-
-  function atualizarDuracao(index: number, duracao: number) {
-    const segura = Math.max(1, Math.min(MAX_SEGUNDOS_CLIPE, duracao || 1))
-    setArquivos(prev => prev.map((a, i) => i === index ? { ...a, duracao: segura } : a))
   }
 
   async function enviarFeedback(avaliacao: 'positivo' | 'negativo') {
@@ -437,7 +431,7 @@ function NovoVideoInner() {
     const res = await fetch('/api/montar-video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clips: arquivos, roteiro: resultado, titulo: briefing.slice(0, 60), sequencia })
+      body: JSON.stringify({ clips: arquivos, roteiro: resultado, titulo: briefing.slice(0, 60), sequencia, duracaoAlvo: duracaoVideo })
     })
 
     if (!res.ok) {
@@ -592,23 +586,11 @@ function NovoVideoInner() {
             {arquivos.length > 0 && (
               <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
                 {arquivos.map((arq, i) => (
-                  <div key={i} className="px-3 py-2 rounded-lg text-xs" style={{ background: '#fff', border: '1px solid var(--bege-dourado)' }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span style={{ color: '#333' }}>
-                        {arq.name.match(/\.(mp4|mov|avi)$/i) ? '🎬' : '🖼️'} {arq.name.length > 26 ? arq.name.substring(0, 26) + '...' : arq.name}
-                      </span>
-                      <button onClick={() => removerArquivo(i)} style={{ color: 'var(--dourado)' }}>✕</button>
-                    </div>
-                    {arq.name.match(/\.(mp4|mov|avi)$/i) && (
-                      <div className="flex items-center gap-2">
-                        <span style={{ color: '#999' }}>Duração:</span>
-                        <input type="number" min={1} max={MAX_SEGUNDOS_CLIPE} value={arq.duracao}
-                          onChange={e => atualizarDuracao(i, Number(e.target.value))}
-                          className="w-14 px-2 py-0.5 rounded border text-xs"
-                          style={{ borderColor: 'var(--dourado)' }} />
-                        <span style={{ color: '#999' }}>seg</span>
-                      </div>
-                    )}
+                  <div key={i} className="px-3 py-2 rounded-lg text-xs flex items-center justify-between" style={{ background: '#fff', border: '1px solid var(--bege-dourado)' }}>
+                    <span style={{ color: '#333' }}>
+                      {arq.name.match(/\.(mp4|mov|avi|webm)$/i) ? '🎬' : '🖼️'} {arq.name.length > 30 ? arq.name.substring(0, 30) + '...' : arq.name}
+                    </span>
+                    <button onClick={() => removerArquivo(i)} style={{ color: 'var(--dourado)' }}>✕</button>
                   </div>
                 ))}
               </div>

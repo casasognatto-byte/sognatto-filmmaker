@@ -28,25 +28,32 @@ function calcularCreditos(width: number, height: number, fps: number, duracao: n
 }
 
 export async function POST(req: NextRequest) {
-  const { clips, roteiro, titulo, sequencia } = await req.json()
+  const { clips, roteiro, titulo, sequencia, duracaoAlvo } = await req.json()
 
   if (!clips || clips.length === 0) {
     return NextResponse.json({ error: 'Clips obrigatórios' }, { status: 400 })
   }
 
-  // Se a IA forneceu uma sequência ordenada, usa ela; senão usa a ordem original
-  const clipsParaMontar: { url: string; name: string; duracao: number; trim_start?: number }[] =
-    sequencia?.length > 0
-      ? (sequencia as ClipSequencia[]).map(s => ({
-          url: s.url,
-          name: s.nome,
-          duracao: Math.max(1, s.fim - s.inicio),
-          trim_start: s.inicio || 0,
-        }))
-      : clips
+  // Se a IA forneceu uma sequência ordenada, usa ela; senão distribui igualmente
+  let clipsParaMontar: { url: string; name: string; duracao: number; trim_start?: number }[]
+
+  if (sequencia?.length > 0) {
+    clipsParaMontar = (sequencia as ClipSequencia[]).map(s => ({
+      url: s.url,
+      name: s.nome,
+      duracao: Math.max(1, s.fim - s.inicio),
+      trim_start: s.inicio || 0,
+    }))
+  } else {
+    // Sem análise IA: distribui a duração alvo igualmente entre os clips
+    const duracaoPorClip = duracaoAlvo
+      ? Math.max(1, Math.round(duracaoAlvo / clips.length))
+      : 5
+    clipsParaMontar = clips.map((c: Clip) => ({ ...c, duracao: duracaoPorClip }))
+  }
 
   // Monta os elementos do vídeo — cada clip ocupa uma fatia do tempo total
-  const duracaoTotal = clipsParaMontar.reduce((acc, c) => acc + (c.duracao || 5), 0)
+  const duracaoTotal = clipsParaMontar.reduce((acc, c) => acc + c.duracao, 0)
   let tempoAtual = 0
 
   const elements: any[] = []
