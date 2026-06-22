@@ -31,6 +31,71 @@ const TIPOS = [
   { id: 'carrossel', label: '📑 Carrossel', desc: 'Slides + legenda + hashtags' },
 ]
 
+// Máximo de segundos que aproveitamos de cada clipe (limita o tempo de compressão).
+const MAX_SEGUNDOS_CLIPE = 15
+
+/**
+ * Comprime um vídeo no navegador: reduz para no máx. 1080p, 30fps, sem áudio,
+ * cortando os primeiros MAX_SEGUNDOS_CLIPE segundos. Streama do arquivo (não carrega
+ * os GBs na memória), então funciona com os vídeos crus do drone.
+ */
+function comprimirVideo(file: File, onProgress?: (pct: number) => void): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'auto'
+    const urlObj = URL.createObjectURL(file)
+    video.src = urlObj
+
+    video.onloadedmetadata = () => {
+      let w = video.videoWidth
+      let h = video.videoHeight
+      if (!w || !h) { URL.revokeObjectURL(urlObj); reject(new Error('Vídeo inválido')); return }
+
+      // Reduz mantendo proporção (cabe em 1920x1080), nunca aumenta
+      const escala = Math.min(1920 / w, 1080 / h, 1)
+      w = Math.round(w * escala); h = Math.round(h * escala)
+      w -= w % 2; h -= h % 2 // dimensões pares (exigência dos codecs)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { URL.revokeObjectURL(urlObj); reject(new Error('Canvas indisponível')); return }
+
+      const stream = canvas.captureStream(30)
+      let mime = 'video/webm'
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) mime = 'video/mp4;codecs=avc1'
+      else if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) mime = 'video/webm;codecs=vp9'
+
+      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5_000_000 })
+      const chunks: BlobPart[] = []
+      recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data) }
+      recorder.onstop = () => {
+        URL.revokeObjectURL(urlObj)
+        resolve(new Blob(chunks, { type: mime.split(';')[0] }))
+      }
+
+      const limite = Math.min(MAX_SEGUNDOS_CLIPE, video.duration || MAX_SEGUNDOS_CLIPE)
+      const desenhar = () => {
+        if (video.ended || video.currentTime >= limite) {
+          if (recorder.state !== 'inactive') recorder.stop()
+          video.pause()
+          return
+        }
+        ctx.drawImage(video, 0, 0, w, h)
+        if (onProgress) onProgress(Math.min(100, (video.currentTime / limite) * 100))
+        requestAnimationFrame(desenhar)
+      }
+
+      recorder.start()
+      video.play().then(() => desenhar()).catch(err => { URL.revokeObjectURL(urlObj); reject(err) })
+    }
+
+    video.onerror = () => { URL.revokeObjectURL(urlObj); reject(new Error('Falha ao ler o vídeo')) }
+  })
+}
+
 function NovoVideoInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -86,42 +151,62 @@ function NovoVideoInner() {
     const novos: Arquivo[] = []
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      setUploadProgresso(`Enviando ${i + 1} de ${files.length}: ${file.name}`)
+      const original = files[i]
+      const ehVideo = original.type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/i.test(original.name)
 
       try {
-        setUploadProgresso(`Arquivo ${i + 1}/${files.length}: preparando ${file.name.slice(0, 25)}...`)
+        let corpo: Blob = original
+        let nomeEnvio = original.name
+        let contentType = original.type || (ehVideo ? 'video/mp4' : 'image/jpeg')
 
-        // 1. Pede URL pré-assinada ao servidor
+        // 1. Comprime vídeos no navegador (reduz GBs para poucos MB)
+        if (ehVideo) {
+          setUploadProgresso(`Vídeo ${i + 1}/${files.length}: comprimindo ${original.name.slice(0, 20)}... 0%`)
+          try {
+            const blob = await comprimirVideo(original, pct => {
+              setUploadProgresso(`Vídeo ${i + 1}/${files.length}: comprimindo ${original.name.slice(0, 20)}... ${pct.toFixed(0)}%`)
+            })
+            corpo = blob
+            contentType = blob.type.includes('mp4') ? 'video/mp4' : 'video/webm'
+            const ext = contentType === 'video/mp4' ? 'mp4' : 'webm'
+            nomeEnvio = original.name.replace(/\.[^.]+$/, '') + '_1080.' + ext
+          } catch {
+            setUploadProgresso(`❌ Não consegui comprimir ${original.name.slice(0, 22)} — pule este arquivo`)
+            await new Promise(r => setTimeout(r, 3500))
+            continue
+          }
+        }
+
+        // 2. Pede URL pré-assinada ao servidor
         const presignRes = await fetch('/api/r2-presign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: file.name, contentType: file.type || 'video/mp4' }),
+          body: JSON.stringify({ filename: nomeEnvio, contentType }),
         })
         if (!presignRes.ok) {
-          setUploadProgresso(`❌ Erro ao preparar upload de ${file.name}`)
+          setUploadProgresso(`❌ Erro ao preparar upload de ${original.name}`)
           await new Promise(r => setTimeout(r, 3000))
           continue
         }
         const { uploadUrl, publicUrl } = await presignRes.json()
 
-        // 2. Upload direto browser → Cloudflare R2
-        setUploadProgresso(`Arquivo ${i + 1}/${files.length}: enviando ${file.name.slice(0, 25)}... (${(file.size/1024/1024).toFixed(0)}MB)`)
+        // 3. Upload direto browser → Cloudflare R2
+        setUploadProgresso(`Arquivo ${i + 1}/${files.length}: enviando ${original.name.slice(0, 20)}... (${(corpo.size / 1024 / 1024).toFixed(1)}MB)`)
         const uploadRes = await fetch(uploadUrl, {
           method: 'PUT',
-          headers: { 'Content-Type': file.type || 'video/mp4' },
-          body: file,
+          headers: { 'Content-Type': contentType },
+          body: corpo,
         })
         if (!uploadRes.ok) {
-          setUploadProgresso(`❌ Erro no upload de ${file.name}`)
+          setUploadProgresso(`❌ Erro no upload de ${original.name}`)
           await new Promise(r => setTimeout(r, 3000))
           continue
         }
 
-        novos.push({ name: file.name, url: publicUrl, id: publicUrl, duracao: 5 })
-        setUploadProgresso(`✅ ${novos.length}/${files.length} concluído: ${file.name.slice(0, 30)}`)
+        novos.push({ name: original.name, url: publicUrl, id: publicUrl, duracao: 5 })
+        setUploadProgresso(`✅ ${novos.length}/${files.length} concluído: ${original.name.slice(0, 28)}`)
       } catch (err: any) {
-        setUploadProgresso(`❌ Falha em ${file.name}: ${err.message}`)
+        setUploadProgresso(`❌ Falha em ${original.name}: ${err.message}`)
         await new Promise(r => setTimeout(r, 3000))
       }
     }
@@ -147,7 +232,8 @@ function NovoVideoInner() {
   }
 
   function atualizarDuracao(index: number, duracao: number) {
-    setArquivos(prev => prev.map((a, i) => i === index ? { ...a, duracao } : a))
+    const segura = Math.max(1, Math.min(MAX_SEGUNDOS_CLIPE, duracao || 1))
+    setArquivos(prev => prev.map((a, i) => i === index ? { ...a, duracao: segura } : a))
   }
 
   async function enviarFeedback(avaliacao: 'positivo' | 'negativo') {
@@ -334,7 +420,7 @@ function NovoVideoInner() {
                 <>
                   <div className="text-2xl mb-2 animate-spin">⏳</div>
                   <p className="text-xs text-center px-4 font-medium" style={{ color: 'var(--dourado)' }}>{uploadProgresso}</p>
-                  <p className="text-xs mt-1" style={{ color: '#999' }}>Aguarde, enviando para a nuvem...</p>
+                  <p className="text-xs mt-1 text-center px-4" style={{ color: '#999' }}>Comprimindo p/ 1080p e enviando — alguns segundos por vídeo</p>
                 </>
               ) : uploadConcluido ? (
                 <>
@@ -378,7 +464,7 @@ function NovoVideoInner() {
                     {arq.name.match(/\.(mp4|mov|avi)$/i) && (
                       <div className="flex items-center gap-2">
                         <span style={{ color: '#999' }}>Duração:</span>
-                        <input type="number" min={1} max={60} value={arq.duracao}
+                        <input type="number" min={1} max={MAX_SEGUNDOS_CLIPE} value={arq.duracao}
                           onChange={e => atualizarDuracao(i, Number(e.target.value))}
                           className="w-14 px-2 py-0.5 rounded border text-xs"
                           style={{ borderColor: 'var(--dourado)' }} />
