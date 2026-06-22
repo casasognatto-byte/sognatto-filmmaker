@@ -236,7 +236,27 @@ function NovoVideoInner() {
         let nomeEnvio = original.name
         let contentType = original.type || (ehVideo ? 'video/mp4' : 'image/jpeg')
 
-        // 1. Comprime vídeos no navegador (reduz GBs para poucos MB)
+        // 1. Comprime vídeos / lê fotos
+        const ehFoto = /\.(jpg|jpeg|png|webp)$/i.test(original.name) || original.type.startsWith('image/')
+
+        if (ehFoto) {
+          // Fotos: converte para JPEG 320x180 para enviar ao Claude
+          const thumb = await new Promise<string>((res) => {
+            const img = new Image()
+            const objUrl = URL.createObjectURL(original)
+            img.onload = () => {
+              const canvas = document.createElement('canvas')
+              canvas.width = 320; canvas.height = 180
+              const ctx = canvas.getContext('2d')!
+              ctx.drawImage(img, 0, 0, 320, 180)
+              res(canvas.toDataURL('image/jpeg', 0.85).split(',')[1])
+              URL.revokeObjectURL(objUrl)
+            }
+            img.src = objUrl
+          })
+          setFramesMap(prev => ({ ...prev, [original.name]: [{ timestamp: 0, base64: thumb }] }))
+        }
+
         if (ehVideo) {
           // Extrai frames do original (MP4 seekable) em paralelo com a compressão
           extrairFrames(original, original.name).then(frames => {

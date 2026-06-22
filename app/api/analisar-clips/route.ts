@@ -49,24 +49,36 @@ Responda APENAS com JSON válido:
   })
 
   for (const clip of clips) {
+    const isPhoto = clip.name.match(/\.(jpg|jpeg|png|webp|gif)$/i)
     const clipFrames: { timestamp: number; base64: string }[] = frames?.[clip.name] || []
 
     content.push({
       type: 'text',
-      text: `\n═══ CLIPE: ${clip.name}\nURL: ${clip.url} ═══`
+      text: `\n═══ ${isPhoto ? 'FOTO' : 'VÍDEO'}: ${clip.name}\nURL: ${clip.url} ═══`
     })
 
-    if (clipFrames.length === 0) {
-      content.push({ type: 'text', text: '(frames não disponíveis para este clipe)' })
-      continue
-    }
-
-    for (const frame of clipFrames) {
-      content.push({ type: 'text', text: `Frame em ${frame.timestamp.toFixed(1)}s:` })
-      content.push({
-        type: 'image',
-        source: { type: 'base64', media_type: 'image/jpeg', data: frame.base64 }
-      })
+    if (isPhoto) {
+      // Foto: envia a imagem diretamente (sem frames — ela é o frame)
+      if (clipFrames.length > 0) {
+        content.push({
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: clipFrames[0].base64 }
+        })
+      }
+      // Para fotos, inicio e fim não fazem sentido — use 0 e a duração desejada
+      content.push({ type: 'text', text: '(é uma foto — use inicio: 0, fim: igual à duração que desejar para ela, entre 3 e 6 segundos)' })
+    } else {
+      if (clipFrames.length === 0) {
+        content.push({ type: 'text', text: '(frames não disponíveis para este clipe)' })
+        continue
+      }
+      for (const frame of clipFrames) {
+        content.push({ type: 'text', text: `Frame em ${frame.timestamp.toFixed(1)}s:` })
+        content.push({
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: frame.base64 }
+        })
+      }
     }
   }
 

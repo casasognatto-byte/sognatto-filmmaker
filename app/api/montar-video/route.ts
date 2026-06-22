@@ -53,8 +53,19 @@ export async function POST(req: NextRequest) {
   }
 
   // Monta os elementos do vídeo — cada clip ocupa uma fatia do tempo total
-  const duracaoTotal = clipsParaMontar.reduce((acc, c) => acc + c.duracao, 0)
+  // Para fotos com crossfade, o tempo total é menor (cada foto se sobrepõe CROSSFADE segundos)
+  const nFotos = clipsParaMontar.filter(c => !c.name.match(/\.(mp4|mov|avi|mkv|webm)$/i)).length
+  const duracaoTotal = clipsParaMontar.reduce((acc, c) => acc + c.duracao, 0) - (nFotos > 0 ? (nFotos - 1) * 0.5 : 0)
   let tempoAtual = 0
+
+  // Ken Burns: 4 variações ciclam entre os elementos de foto
+  const CROSSFADE = 0.5
+  const kenBurns = [
+    { x_scale: 1.08, y_scale: 1.08, reverse: false, x_anchor: '50%', y_anchor: '50%' }, // zoom in centro
+    { x_scale: 1.08, y_scale: 1.08, reverse: true,  x_anchor: '50%', y_anchor: '50%' }, // zoom out centro
+    { x_scale: 1.08, y_scale: 1.08, reverse: false, x_anchor: '30%', y_anchor: '60%' }, // zoom in esq/baixo
+    { x_scale: 1.08, y_scale: 1.08, reverse: true,  x_anchor: '70%', y_anchor: '40%' }, // zoom out dir/cima
+  ]
 
   const elements: any[] = []
 
@@ -81,15 +92,29 @@ export async function POST(req: NextRequest) {
       el.trim_start = clip.trim_start
     }
 
-    // Transição suave: fade in no início, fade out no fim de cada clip
-    const fadeDur = Math.min(0.6, dur * 0.15)
-    el.animations = [
-      { easing: 'linear', type: 'fade', fade: 'in',  time: 0,           duration: fadeDur },
-      { easing: 'linear', type: 'fade', fade: 'out', time: dur - fadeDur, duration: fadeDur },
-    ]
+    if (isVideo) {
+      // Vídeos: fade in/out simples
+      const fadeDur = Math.min(0.6, dur * 0.15)
+      el.animations = [
+        { easing: 'linear', type: 'fade', fade: 'in',  time: 0,            duration: fadeDur },
+        { easing: 'linear', type: 'fade', fade: 'out', time: dur - fadeDur, duration: fadeDur },
+      ]
+      tempoAtual += dur
+    } else {
+      // Fotos: Ken Burns + crossfade
+      const kb = kenBurns[i % kenBurns.length]
+      el.animations = [
+        { easing: 'linear', type: 'scale', x_scale: kb.x_scale, y_scale: kb.y_scale,
+          reverse: kb.reverse, x_anchor: kb.x_anchor, y_anchor: kb.y_anchor,
+          time: 0, duration: dur },
+        { easing: 'linear', type: 'fade', fade: 'in',  time: 0,              duration: CROSSFADE },
+        { easing: 'linear', type: 'fade', fade: 'out', time: dur - CROSSFADE, duration: CROSSFADE },
+      ]
+      // Crossfade: próxima foto começa CROSSFADE segundos antes desta terminar
+      tempoAtual += dur - CROSSFADE
+    }
 
     elements.push(el)
-    tempoAtual += dur
   })
 
   // Texto do título no início
