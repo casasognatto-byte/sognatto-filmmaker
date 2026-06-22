@@ -13,6 +13,14 @@ interface Clip {
   duracao: number
 }
 
+interface ClipSequencia {
+  nome: string
+  url: string
+  inicio: number
+  fim: number
+  descricao?: string
+}
+
 // Fórmula oficial do Creatomate: 1 crédito = 100 milhões de pixels.
 // créditos = (largura × altura × fps × duração) / 100.000.000, arredondado p/ cima, mínimo 1.
 function calcularCreditos(width: number, height: number, fps: number, duracao: number) {
@@ -20,31 +28,47 @@ function calcularCreditos(width: number, height: number, fps: number, duracao: n
 }
 
 export async function POST(req: NextRequest) {
-  const { clips, roteiro, titulo } = await req.json()
+  const { clips, roteiro, titulo, sequencia } = await req.json()
 
   if (!clips || clips.length === 0) {
     return NextResponse.json({ error: 'Clips obrigatórios' }, { status: 400 })
   }
 
+  // Se a IA forneceu uma sequência ordenada, usa ela; senão usa a ordem original
+  const clipsParaMontar: { url: string; name: string; duracao: number; trim_start?: number }[] =
+    sequencia?.length > 0
+      ? (sequencia as ClipSequencia[]).map(s => ({
+          url: s.url,
+          name: s.nome,
+          duracao: Math.max(1, s.fim - s.inicio),
+          trim_start: s.inicio || 0,
+        }))
+      : clips
+
   // Monta os elementos do vídeo — cada clip ocupa uma fatia do tempo total
-  const duracaoTotal = clips.reduce((acc: number, c: Clip) => acc + (c.duracao || 5), 0)
+  const duracaoTotal = clipsParaMontar.reduce((acc, c) => acc + (c.duracao || 5), 0)
   let tempoAtual = 0
 
   const elements: any[] = []
 
-  clips.forEach((clip: Clip, i: number) => {
+  clipsParaMontar.forEach((clip, i) => {
     const dur = clip.duracao || 5
-    const isVideo = clip.name.match(/\.(mp4|mov|avi|mkv)$/i)
+    const isVideo = clip.name.match(/\.(mp4|mov|avi|mkv|webm)$/i)
 
-    elements.push({
+    const el: any = {
       id: `clip_${i}`,
       type: isVideo ? 'video' : 'image',
       source: clip.url,
       time: tempoAtual,
       duration: dur,
       fit: 'cover',
-    })
+    }
 
+    if (clip.trim_start !== undefined && clip.trim_start > 0) {
+      el.trim_start = clip.trim_start
+    }
+
+    elements.push(el)
     tempoAtual += dur
   })
 

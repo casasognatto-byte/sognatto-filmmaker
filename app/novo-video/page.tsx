@@ -35,6 +35,56 @@ const TIPOS = [
 const MAX_SEGUNDOS_CLIPE = 15
 
 /**
+ * Captura 3 frames do vídeo comprimido (em 20%, 50% e 80% da duração)
+ * em 320×180px JPEG para envio ao Claude Opus para análise visual.
+ */
+async function extrairFrames(blob: Blob, _nome: string): Promise<{ timestamp: number; base64: string }[]> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.muted = true
+    const url = URL.createObjectURL(blob)
+    video.src = url
+    const cleanup = () => URL.revokeObjectURL(url)
+    const fallback = setTimeout(() => { cleanup(); resolve([]) }, 30000)
+
+    video.onloadedmetadata = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 320
+      canvas.height = 180
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { clearTimeout(fallback); cleanup(); resolve([]); return }
+
+      const duracao = Math.min(video.duration || MAX_SEGUNDOS_CLIPE, MAX_SEGUNDOS_CLIPE)
+      const timestamps = [0.2, 0.5, 0.8].map(p => duracao * p)
+      const frames: { timestamp: number; base64: string }[] = []
+
+      let i = 0
+      function capturar() {
+        if (i >= timestamps.length) {
+          clearTimeout(fallback)
+          cleanup()
+          resolve(frames)
+          return
+        }
+        video.currentTime = timestamps[i]
+        video.onseeked = () => {
+          try {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const base64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1]
+            frames.push({ timestamp: timestamps[i], base64 })
+          } catch {}
+          i++
+          capturar()
+        }
+      }
+      capturar()
+    }
+
+    video.onerror = () => { clearTimeout(fallback); cleanup(); resolve([]) }
+  })
+}
+
+/**
  * Comprime um vídeo no navegador: reduz para no máx. 1080p, 30fps, sem áudio,
  * cortando os primeiros MAX_SEGUNDOS_CLIPE segundos. Streama do arquivo (não carrega
  * os GBs na memória), então funciona com os vídeos crus do drone.
@@ -129,6 +179,8 @@ function NovoVideoInner() {
   const [feedbackEnviado, setFeedbackEnviado] = useState(false)
   const [salvandoFeedback, setSalvandoFeedback] = useState(false)
   const [videoFinal, setVideoFinal] = useState<string | null>(null)
+  const [framesMap, setFramesMap] = useState<Record<string, { timestamp: number; base64: string }[]>>({})
+  const [analiseIA, setAnaliseIA] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
   const cancelRef = useRef<{ cancelado: boolean }>({ cancelado: false })
   const abortRef = useRef<AbortController | null>(null)
@@ -194,6 +246,10 @@ function NovoVideoInner() {
             }, cancelRef.current)
             corpo = blob
             contentType = blob.type.includes('mp4') ? 'video/mp4' : 'video/webm'
+            // Extrai frames em background para análise IA posterior
+            extrairFrames(blob, original.name).then(frames => {
+              if (frames.length > 0) setFramesMap(prev => ({ ...prev, [original.name]: frames }))
+            })
             const ext = contentType === 'video/mp4' ? 'mp4' : 'webm'
             nomeEnvio = original.name.replace(/\.[^.]+$/, '') + '_1080.' + ext
           } catch {
@@ -333,12 +389,55 @@ function NovoVideoInner() {
     setMontando(true)
     setErroMontagem('')
     setVideoFinal(null)
+    setAnaliseIA('')
+
+    // Etapa 1: Análise visual com IA (se houver frames extraídos)
+    let sequencia = null
+    const clipsComFrames = arquivos.filter(a => (framesMap[a.name] || []).length > 0)
+
+    if (clipsComFrames.length > 0) {
+      setStatusMontagem('✦ Analisando vídeos com IA Opus...')
+      try {
+        const controller = new AbortController()
+        abortRef.current = controller
+
+        const frames: Record<string, { timestamp: number; base64: string }[]> = {}
+        arquivos.forEach(a => { if (framesMap[a.name]) frames[a.name] = framesMap[a.name] })
+
+        const analiseRes = await fetch('/api/analisar-clips', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clips: arquivos.map(a => ({ name: a.name, url: a.url })),
+            frames,
+            roteiro: resultado,
+            duracao: duracaoVideo
+          }),
+          signal: controller.signal
+        })
+
+        if (analiseRes.ok) {
+          const analise = await analiseRes.json()
+          if (analise.sequencia?.length > 0) {
+            sequencia = analise.sequencia
+            setAnaliseIA(`✦ IA selecionou ${sequencia.length} clip${sequencia.length > 1 ? 's' : ''} · ${analise.justificativa?.slice(0, 120) || ''}`)
+          }
+        }
+      } catch (e: any) {
+        if (cancelRef.current.cancelado) { setMontando(false); return }
+        // Sem análise — monta na ordem original
+      }
+    }
+
+    if (cancelRef.current.cancelado) { setMontando(false); return }
+
+    // Etapa 2: Enviar para o Creatomate
     setStatusMontagem('Enviando para montagem...')
 
     const res = await fetch('/api/montar-video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clips: arquivos, roteiro: resultado, titulo: briefing.slice(0, 60) })
+      body: JSON.stringify({ clips: arquivos, roteiro: resultado, titulo: briefing.slice(0, 60), sequencia })
     })
 
     if (!res.ok) {
@@ -541,6 +640,12 @@ function NovoVideoInner() {
             {custo && <p className="text-xs mt-1" style={{ color: 'var(--dourado)' }}>Custo estimado: <strong>{custo}</strong></p>}
           </div>
         </div>
+
+        {analiseIA && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: '#f0f8f0', border: '1px solid var(--verde)', color: 'var(--verde)' }}>
+            {analiseIA}
+          </div>
+        )}
 
         {erroMontagem && (
           <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: '#fff0f0', border: '1px solid #f44336', color: '#c62828' }}>
