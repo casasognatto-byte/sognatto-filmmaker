@@ -597,11 +597,24 @@ function NovoVideoInner() {
               </div>
             )}
 
-            {/* Status de arquivos */}
+            {/* Status de arquivos + limpar tudo */}
             {arquivos.length > 0 && (
-              <p className="text-xs mt-2 text-center font-semibold" style={{ color: '#4caf50' }}>
-                ✅ {arquivos.length} arquivo{arquivos.length > 1 ? 's' : ''} pronto{arquivos.length > 1 ? 's' : ''}
-              </p>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs font-semibold" style={{ color: '#4caf50' }}>
+                  ✅ {arquivos.length} arquivo{arquivos.length > 1 ? 's' : ''} pronto{arquivos.length > 1 ? 's' : ''}
+                </p>
+                <button onClick={() => {
+                  setArquivos([])
+                  setFramesMap({})
+                  setVideoFinal(null)
+                  setAnaliseIA('')
+                  setErroMontagem('')
+                  localStorage.removeItem('filmmaker_arquivos')
+                }} className="text-xs px-3 py-1 rounded-lg transition-opacity hover:opacity-80"
+                  style={{ color: '#e53935', border: '1px solid #e53935' }}>
+                  Limpar tudo
+                </button>
+              </div>
             )}
 
             {videoFinal && (
