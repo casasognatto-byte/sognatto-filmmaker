@@ -39,7 +39,7 @@ const MAX_SEGUNDOS_CLIPE = 15
  * cortando os primeiros MAX_SEGUNDOS_CLIPE segundos. Streama do arquivo (não carrega
  * os GBs na memória), então funciona com os vídeos crus do drone.
  */
-function comprimirVideo(file: File, onProgress?: (pct: number) => void): Promise<Blob> {
+function comprimirVideo(file: File, onProgress?: (pct: number) => void, sinal?: { cancelado: boolean }): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video')
     video.muted = true
@@ -68,16 +68,25 @@ function comprimirVideo(file: File, onProgress?: (pct: number) => void): Promise
       if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) mime = 'video/mp4;codecs=avc1'
       else if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) mime = 'video/webm;codecs=vp9'
 
+      let foiCancelado = false
       const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5_000_000 })
       const chunks: BlobPart[] = []
       recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data) }
       recorder.onstop = () => {
         URL.revokeObjectURL(urlObj)
-        resolve(new Blob(chunks, { type: mime.split(';')[0] }))
+        if (foiCancelado) reject(new Error('cancelado'))
+        else resolve(new Blob(chunks, { type: mime.split(';')[0] }))
       }
 
       const limite = Math.min(MAX_SEGUNDOS_CLIPE, video.duration || MAX_SEGUNDOS_CLIPE)
       const desenhar = () => {
+        if (sinal?.cancelado) {
+          foiCancelado = true
+          video.pause()
+          if (recorder.state !== 'inactive') recorder.stop()
+          else { URL.revokeObjectURL(urlObj); reject(new Error('cancelado')) }
+          return
+        }
         if (video.ended || video.currentTime >= limite) {
           if (recorder.state !== 'inactive') recorder.stop()
           video.pause()
@@ -121,6 +130,21 @@ function NovoVideoInner() {
   const [salvandoFeedback, setSalvandoFeedback] = useState(false)
   const [videoFinal, setVideoFinal] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const cancelRef = useRef<{ cancelado: boolean }>({ cancelado: false })
+  const abortRef = useRef<AbortController | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  function cancelarTudo() {
+    cancelRef.current.cancelado = true
+    if (abortRef.current) abortRef.current.abort()
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    setUploading(false)
+    setLoading(false)
+    setMontando(false)
+    setUploadProgresso('')
+    setStatusMontagem('')
+    setErroMontagem('')
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -148,9 +172,11 @@ function NovoVideoInner() {
     if (!files || files.length === 0) return
 
     setUploading(true)
+    cancelRef.current.cancelado = false
     const novos: Arquivo[] = []
 
     for (let i = 0; i < files.length; i++) {
+      if (cancelRef.current.cancelado) break
       const original = files[i]
       const ehVideo = original.type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/i.test(original.name)
 
@@ -165,12 +191,13 @@ function NovoVideoInner() {
           try {
             const blob = await comprimirVideo(original, pct => {
               setUploadProgresso(`Vídeo ${i + 1}/${files.length}: comprimindo ${original.name.slice(0, 20)}... ${pct.toFixed(0)}%`)
-            })
+            }, cancelRef.current)
             corpo = blob
             contentType = blob.type.includes('mp4') ? 'video/mp4' : 'video/webm'
             const ext = contentType === 'video/mp4' ? 'mp4' : 'webm'
             nomeEnvio = original.name.replace(/\.[^.]+$/, '') + '_1080.' + ext
           } catch {
+            if (cancelRef.current.cancelado) break
             setUploadProgresso(`❌ Não consegui comprimir ${original.name.slice(0, 22)} — pule este arquivo`)
             await new Promise(r => setTimeout(r, 3500))
             continue
@@ -211,15 +238,17 @@ function NovoVideoInner() {
       }
     }
 
-    setArquivos(prev => {
-      const updated = [...prev, ...novos]
-      localStorage.setItem('filmmaker_arquivos', JSON.stringify(updated))
-      return updated
-    })
+    if (novos.length > 0) {
+      setArquivos(prev => {
+        const updated = [...prev, ...novos]
+        localStorage.setItem('filmmaker_arquivos', JSON.stringify(updated))
+        return updated
+      })
+      setUploadConcluido(true)
+      setTimeout(() => setUploadConcluido(false), 4000)
+    }
     setUploading(false)
     setUploadProgresso('')
-    setUploadConcluido(true)
-    setTimeout(() => setUploadConcluido(false), 4000)
     if (inputRef.current) inputRef.current.value = ''
   }
 
@@ -260,6 +289,7 @@ function NovoVideoInner() {
 
   async function gerar() {
     if (!briefing.trim()) return
+    cancelRef.current.cancelado = false
     setLoading(true)
     setResultado('')
     setFeedbackEnviado(false)
@@ -268,6 +298,7 @@ function NovoVideoInner() {
 
     try {
       const controller = new AbortController()
+      abortRef.current = controller
       const timeout = setTimeout(() => controller.abort(), 90000)
 
       const res = await fetch('/api/gerar-roteiro', {
@@ -289,7 +320,8 @@ function NovoVideoInner() {
       setResultado(data.resultado || 'Erro ao gerar conteúdo.')
       setModeloUsado(data.modelo || '')
     } catch (e: any) {
-      setResultado(e.name === 'AbortError' ? 'Tempo esgotado. Tente novamente.' : `Erro: ${e.message}`)
+      if (e.name === 'AbortError') setResultado(cancelRef.current.cancelado ? '' : 'Tempo esgotado. Tente novamente.')
+      else setResultado(`Erro: ${e.message}`)
     }
 
     setLoading(false)
@@ -297,6 +329,7 @@ function NovoVideoInner() {
 
   async function montarVideo() {
     if (arquivos.length === 0) return
+    cancelRef.current.cancelado = false
     setMontando(true)
     setErroMontagem('')
     setVideoFinal(null)
@@ -324,12 +357,12 @@ function NovoVideoInner() {
       const statusData = await statusRes.json()
 
       if (statusData.status === 'succeeded') {
-        clearInterval(poll)
+        clearInterval(poll); pollRef.current = null
         setVideoFinal(statusData.url)
         setStatusMontagem('Vídeo pronto!')
         setMontando(false)
       } else if (statusData.status === 'failed') {
-        clearInterval(poll)
+        clearInterval(poll); pollRef.current = null
         setErroMontagem(`Falha na renderização: ${statusData.error || 'motivo não informado'}`)
         setStatusMontagem('')
         setMontando(false)
@@ -337,6 +370,7 @@ function NovoVideoInner() {
         setStatusMontagem(`Renderizando... (${statusData.status})`)
       }
     }, 5000)
+    pollRef.current = poll
   }
 
   const tipoAtual = TIPOS.find(t => t.id === tipo)!
@@ -421,6 +455,11 @@ function NovoVideoInner() {
                   <div className="text-2xl mb-2 animate-spin">⏳</div>
                   <p className="text-xs text-center px-4 font-medium" style={{ color: 'var(--dourado)' }}>{uploadProgresso}</p>
                   <p className="text-xs mt-1 text-center px-4" style={{ color: '#999' }}>Comprimindo p/ 1080p e enviando — alguns segundos por vídeo</p>
+                  <button onClick={(e) => { e.stopPropagation(); cancelarTudo() }}
+                    className="mt-3 text-xs uppercase tracking-widest px-4 py-1.5 rounded-lg font-semibold"
+                    style={{ background: '#c62828', color: '#fff' }}>
+                    ✕ Cancelar
+                  </button>
                 </>
               ) : uploadConcluido ? (
                 <>
@@ -510,6 +549,13 @@ function NovoVideoInner() {
         )}
 
         <div className="flex gap-3 mb-10 flex-wrap">
+          {(uploading || loading || montando) && (
+            <button onClick={cancelarTudo}
+              className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90"
+              style={{ background: '#c62828', color: '#fff' }}>
+              ✕ Cancelar
+            </button>
+          )}
           <Link href="/projetos" className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-80"
             style={{ border: '1px solid var(--dourado)', color: 'var(--dourado)', background: '#fff' }}>
             ☁ Vídeos em andamento
