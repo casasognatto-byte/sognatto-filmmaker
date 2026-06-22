@@ -40,7 +40,9 @@ function NovoVideoInner() {
   const [resultado, setResultado] = useState('')
   const [loading, setLoading] = useState(false)
   const [custo, setCusto] = useState<string | null>(null)
-  const [arquivos, setArquivos] = useState<Arquivo[]>([])
+  const [arquivos, setArquivos] = useState<Arquivo[]>(() => {
+    try { return JSON.parse(localStorage.getItem('filmmaker_arquivos') || '[]') } catch { return [] }
+  })
   const [uploading, setUploading] = useState(false)
   const [uploadProgresso, setUploadProgresso] = useState('')
   const [uploadConcluido, setUploadConcluido] = useState(false)
@@ -118,7 +120,11 @@ function NovoVideoInner() {
       }
     }
 
-    setArquivos(prev => [...prev, ...novos])
+    setArquivos(prev => {
+      const updated = [...prev, ...novos]
+      localStorage.setItem('filmmaker_arquivos', JSON.stringify(updated))
+      return updated
+    })
     setUploading(false)
     setUploadProgresso('')
     setUploadConcluido(true)
@@ -127,7 +133,11 @@ function NovoVideoInner() {
   }
 
   function removerArquivo(index: number) {
-    setArquivos(prev => prev.filter((_, i) => i !== index))
+    setArquivos(prev => {
+      const updated = prev.filter((_, i) => i !== index)
+      localStorage.setItem('filmmaker_arquivos', JSON.stringify(updated))
+      return updated
+    })
   }
 
   function atualizarDuracao(index: number, duracao: number) {
