@@ -60,11 +60,18 @@ export default function Dashboard() {
           <span className="text-lg font-bold tracking-widest uppercase" style={{ color: 'var(--bege)' }}>SOGNATTO</span>
           <span className="text-xs tracking-[0.2em] ml-3 uppercase" style={{ color: 'var(--dourado)' }}>Filmmaker</span>
         </div>
-        <button onClick={handleLogout}
-          className="text-xs uppercase tracking-widest px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-          style={{ color: 'var(--bege-dourado)', border: '1px solid var(--dourado)' }}>
-          Sair
-        </button>
+        <div className="flex items-center gap-3">
+          <Link href="/consumo"
+            className="text-xs uppercase tracking-widest px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
+            style={{ color: 'var(--bege-dourado)', border: '1px solid var(--dourado)' }}>
+            💳 Consumo
+          </Link>
+          <button onClick={handleLogout}
+            className="text-xs uppercase tracking-widest px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
+            style={{ color: 'var(--bege-dourado)', border: '1px solid var(--dourado)' }}>
+            Sair
+          </button>
+        </div>
       </header>
 
       <div className="max-w-5xl mx-auto px-8 py-12">

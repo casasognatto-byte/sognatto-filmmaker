@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+)
 
 interface Clip {
   id: string
   url: string
   name: string
   duracao: number
+}
+
+// Fórmula oficial do Creatomate: 1 crédito = 100 milhões de pixels.
+// créditos = (largura × altura × fps × duração) / 100.000.000, arredondado p/ cima, mínimo 1.
+function calcularCreditos(width: number, height: number, fps: number, duracao: number) {
+  return Math.max(1, Math.ceil((width * height * fps * duracao) / 100_000_000))
 }
 
 export async function POST(req: NextRequest) {
@@ -151,6 +163,20 @@ export async function POST(req: NextRequest) {
 
   const data = await res.json()
   const render = Array.isArray(data) ? data[0] : data
+
+  // Registra o render no banco para acompanhar o consumo de créditos
+  const creditos = calcularCreditos(1080, 1920, 30, duracaoTotal)
+  await supabase.from('renders_log').insert({
+    render_id: render.id,
+    width: 1080,
+    height: 1920,
+    frame_rate: 30,
+    duracao: duracaoTotal,
+    creditos,
+    titulo: titulo || null,
+  }).then(({ error }) => {
+    if (error) console.error('Erro ao registrar render:', error.message)
+  })
 
   return NextResponse.json({ renderId: render.id, status: render.status })
 }
