@@ -238,6 +238,11 @@ function NovoVideoInner() {
 
         // 1. Comprime vídeos no navegador (reduz GBs para poucos MB)
         if (ehVideo) {
+          // Extrai frames do original (MP4 seekable) em paralelo com a compressão
+          extrairFrames(original, original.name).then(frames => {
+            if (frames.length > 0) setFramesMap(prev => ({ ...prev, [original.name]: frames }))
+          })
+
           setUploadProgresso(`Vídeo ${i + 1}/${files.length}: comprimindo ${original.name.slice(0, 20)}... 0%`)
           try {
             const blob = await comprimirVideo(original, pct => {
@@ -245,10 +250,6 @@ function NovoVideoInner() {
             }, cancelRef.current)
             corpo = blob
             contentType = blob.type.includes('mp4') ? 'video/mp4' : 'video/webm'
-            // Extrai frames em background para análise IA posterior
-            extrairFrames(blob, original.name).then(frames => {
-              if (frames.length > 0) setFramesMap(prev => ({ ...prev, [original.name]: frames }))
-            })
             const ext = contentType === 'video/mp4' ? 'mp4' : 'webm'
             nomeEnvio = original.name.replace(/\.[^.]+$/, '') + '_1080.' + ext
           } catch {

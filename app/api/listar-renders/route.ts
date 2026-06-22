@@ -6,9 +6,17 @@ export async function GET() {
   })
 
   if (!res.ok) {
-    return NextResponse.json({ error: await res.text() }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao listar renders' }, { status: 500 })
   }
 
   const data = await res.json()
-  return NextResponse.json({ renders: data })
+  const renders = (Array.isArray(data) ? data : []).map((r: any) => ({
+    id: r.id,
+    status: r.status,
+    url: r.url || null,
+    created_at: r.created_at,
+    error_message: r.error_message || null,
+  }))
+
+  return NextResponse.json({ renders })
 }
