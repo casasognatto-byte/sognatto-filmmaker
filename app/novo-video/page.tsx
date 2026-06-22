@@ -46,6 +46,7 @@ function NovoVideoInner() {
   const [uploadConcluido, setUploadConcluido] = useState(false)
   const [montando, setMontando] = useState(false)
   const [statusMontagem, setStatusMontagem] = useState('')
+  const [erroMontagem, setErroMontagem] = useState('')
   const [videoFinal, setVideoFinal] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -169,6 +170,7 @@ function NovoVideoInner() {
   async function montarVideo() {
     if (arquivos.length === 0) return
     setMontando(true)
+    setErroMontagem('')
     setVideoFinal(null)
     setStatusMontagem('Enviando para montagem...')
 
@@ -179,7 +181,8 @@ function NovoVideoInner() {
     })
 
     if (!res.ok) {
-      setStatusMontagem(`Erro: ${await res.text()}`)
+      const txt = await res.text()
+      setErroMontagem(`Erro: ${txt}`)
       setMontando(false)
       return
     }
@@ -370,6 +373,12 @@ function NovoVideoInner() {
             {custo && <p className="text-xs mt-1" style={{ color: 'var(--dourado)' }}>Custo estimado: <strong>{custo}</strong></p>}
           </div>
         </div>
+
+        {erroMontagem && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: '#fff0f0', border: '1px solid #f44336', color: '#c62828' }}>
+            {erroMontagem}
+          </div>
+        )}
 
         <div className="flex gap-3 mb-10 flex-wrap">
           <button onClick={gerar} disabled={loading || !briefing.trim()}
