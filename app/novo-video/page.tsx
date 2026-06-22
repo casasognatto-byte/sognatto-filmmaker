@@ -59,11 +59,12 @@ function NovoVideoInner() {
   }, [router])
 
   function estimarCusto(texto: string) {
-    const tokens = Math.ceil(texto.length / 4)
-    const totalTokens = tokens + 2048
-    const custoUSD = (totalTokens / 1_000_000) * 3
+    const inputTokens = Math.ceil(texto.length / 4)
+    const outputTokens = 2048
+    // Opus 4.8: $5/milhão entrada, $25/milhão saída
+    const custoUSD = (inputTokens / 1_000_000) * 5 + (outputTokens / 1_000_000) * 25
     const custoBRL = custoUSD * 5.5
-    return `~R$ ${custoBRL.toFixed(3)} (${totalTokens} tokens)`
+    return `~R$ ${custoBRL.toFixed(3)} (${inputTokens + outputTokens} tokens)`
   }
 
   function handleBriefingChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
