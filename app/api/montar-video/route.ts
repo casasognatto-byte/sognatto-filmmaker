@@ -69,6 +69,12 @@ export async function POST(req: NextRequest) {
       time: tempoAtual,
       duration: dur,
       fit: 'cover',
+      x: '50%',
+      y: '50%',
+      width: '100%',
+      height: '100%',
+      x_alignment: '50%',
+      y_alignment: '50%',
     }
 
     if (clip.trim_start !== undefined && clip.trim_start > 0) {
