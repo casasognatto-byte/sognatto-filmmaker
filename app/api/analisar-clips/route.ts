@@ -14,34 +14,37 @@ export async function POST(req: NextRequest) {
 
   content.push({
     type: 'text',
-    text: `Você é um editor de vídeo profissional da Casa Sognatto, marca premium de móveis e decoração de alto padrão.
+    text: `Você é um editor de vídeo sênior da Casa Sognatto, marca premium de móveis e decoração de alto padrão.
 
-Seu trabalho: analisar frames de ${clips.length} clipe(s) de vídeo e definir a sequência ideal para um vídeo de marketing de ${duracao} segundos.
+MISSÃO: Criar a sequência de clips que conta EXATAMENTE a história do roteiro abaixo, usando o material visual disponível.
 
-ROTEIRO APROVADO:
-${roteiro || '(Não fornecido — use seu julgamento visual e o posicionamento premium da marca)'}
+━━━ ROTEIRO (siga à risca) ━━━
+${roteiro || '(Não fornecido — use julgamento visual premium)'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CRITÉRIOS DE SELEÇÃO:
-- Prefira cenas com boa iluminação, composição limpa e apelo visual premium
-- Evite frames borrados, mal enquadrados ou com conteúdo repetitivo
-- Construa narrativa visual: abertura impactante → desenvolvimento → fechamento elegante
-- A transição entre clipes deve ser fluida (o fim de um complementa o início do próximo)
-- Distribua a duração total (${duracao}s) proporcionalmente entre os clipes selecionados
+DURAÇÃO TOTAL DO VÍDEO: ${duracao} segundos
 
-Para cada clipe abaixo você verá 3 frames capturados em momentos distintos (20%, 50% e 80% da duração do clipe comprimido, que tem até 15 segundos).
+REGRAS OBRIGATÓRIAS:
+1. Cada clip tem até 15 segundos. Os frames mostram o que acontece em 3 momentos desse clip (timestamps indicados).
+2. O "inicio" e "fim" que você definir devem estar DENTRO do intervalo dos frames mostrados — não invente conteúdo que não viu.
+3. Use o frame do timestamp mais próximo para decidir onde cortar. Ex: se o melhor frame é em 7.5s, use inicio≈6, fim≈11.
+4. O roteiro define a ORDEM das cenas — respeite-o rigorosamente. Não reordene por preferência estética.
+5. Prefira cenas bem iluminadas, estáveis, sem obstáculos no enquadramento.
+6. A soma das durações (fim-inicio de cada clip) deve ser próxima de ${duracao}s.
+7. É melhor usar MENOS clips bem cortados do que muitos clips mal aproveitados.
 
-Responda APENAS com JSON válido neste formato exato:
+Responda APENAS com JSON válido:
 {
   "sequencia": [
     {
       "nome": "nome-exato-do-arquivo.ext",
       "url": "url-exata-do-clip",
-      "inicio": 0,
-      "fim": 8,
-      "descricao": "motivo da escolha e posição na narrativa"
+      "inicio": 3.0,
+      "fim": 9.0,
+      "descricao": "qual cena do roteiro este clip representa e por quê"
     }
   ],
-  "justificativa": "visão geral das escolhas editoriais"
+  "justificativa": "como a sequência conta a história do roteiro"
 }`
   })
 

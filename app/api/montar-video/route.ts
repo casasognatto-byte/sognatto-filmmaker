@@ -81,6 +81,13 @@ export async function POST(req: NextRequest) {
       el.trim_start = clip.trim_start
     }
 
+    // Transição suave: fade in no início, fade out no fim de cada clip
+    const fadeDur = Math.min(0.6, dur * 0.15)
+    el.animations = [
+      { easing: 'linear', type: 'fade', fade: 'in',  time: 0,           duration: fadeDur },
+      { easing: 'linear', type: 'fade', fade: 'out', time: dur - fadeDur, duration: fadeDur },
+    ]
+
     elements.push(el)
     tempoAtual += dur
   })

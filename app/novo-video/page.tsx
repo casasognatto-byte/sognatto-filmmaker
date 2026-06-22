@@ -54,7 +54,7 @@ async function extrairFrames(blob: Blob, _nome: string): Promise<{ timestamp: nu
       if (!ctx) { clearTimeout(fallback); cleanup(); resolve([]); return }
 
       const duracao = Math.min(video.duration || MAX_SEGUNDOS_CLIPE, MAX_SEGUNDOS_CLIPE)
-      const timestamps = [0.2, 0.5, 0.8].map(p => duracao * p)
+      const timestamps = [0.1, 0.3, 0.5, 0.7, 0.9].map(p => duracao * p)
       const frames: { timestamp: number; base64: string }[] = []
 
       let i = 0
