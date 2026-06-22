@@ -645,8 +645,10 @@ function NovoVideoInner() {
             </button>
           )}
           <Link href="/projetos" className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-80"
-            style={{ border: '1px solid var(--dourado)', color: 'var(--dourado)', background: '#fff' }}>
-            ☁ Vídeos em andamento
+            style={videoFinal
+              ? { background: '#4caf50', color: '#fff', border: '1px solid #4caf50' }
+              : { border: '1px solid var(--dourado)', color: 'var(--dourado)', background: '#fff' }}>
+            {videoFinal ? '✅ Vídeos produzidos' : '☁ Vídeos produzidos'}
           </Link>
           <button onClick={gerar} disabled={loading || !briefing.trim()}
             className="px-6 py-3 rounded-xl text-sm uppercase tracking-widest font-semibold transition-opacity hover:opacity-90 disabled:opacity-40"
