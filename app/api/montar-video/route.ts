@@ -125,11 +125,13 @@ export async function POST(req: NextRequest) {
   })
 
   const payload = {
-    output_format: 'mp4',
-    width: 1080,
-    height: 1920,
-    frame_rate: 30,
-    elements,
+    source: {
+      output_format: 'mp4',
+      width: 1080,
+      height: 1920,
+      frame_rate: 30,
+      elements,
+    },
   }
 
   const res = await fetch('https://api.creatomate.com/v1/renders', {
